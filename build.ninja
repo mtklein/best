@@ -1,0 +1,28 @@
+builddir = out
+
+cc = clang -Weverything -Wno-poison-system-directories
+dbg = $cc -fsanitize=address,integer,undefined -fno-sanitize-recover=all
+
+rule compile
+    command = $cc -g -Os -Werror -fcolor-diagnostics -MD -MF $out.d -c $in -o $out
+    depfile = $out.d
+    deps    = gcc
+
+rule link
+    command = $cc $in -o $out
+
+rule run
+    command = ./$in > $out
+
+build out/opt/array.o:       compile  array.c
+build out/opt/array_test.o:  compile  array_test.c
+build out/opt/array_test:    link out/opt/array_test.o out/opt/array.o
+build out/opt/array_test.ok: run  out/opt/array_test
+
+build out/dbg/array.o:       compile  array.c
+    cc = $dbg
+build out/dbg/array_test.o:  compile  array_test.c
+    cc = $dbg
+build out/dbg/array_test:    link out/dbg/array_test.o out/dbg/array.o
+    cc = $dbg
+build out/dbg/array_test.ok: run  out/dbg/array_test
