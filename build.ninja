@@ -14,15 +14,28 @@ rule link
 rule run
     command = ./$in > $out
 
-build out/opt/array.o:       compile  array.c
-build out/opt/array_test.o:  compile  array_test.c
+build out/opt/array.o:       compile      array.c
+build out/opt/array_test.o:  compile      array_test.c
 build out/opt/array_test:    link out/opt/array_test.o out/opt/array.o
 build out/opt/array_test.ok: run  out/opt/array_test
 
-build out/dbg/array.o:       compile  array.c
+build out/opt/hash.o:        compile      hash.c
+build out/opt/hash_test.o:   compile      hash_test.c
+build out/opt/hash_test:     link out/opt/hash_test.o out/opt/hash.o
+build out/opt/hash_test.ok:  run  out/opt/hash_test
+
+build out/dbg/array.o:       compile array.c
     cc = $dbg
-build out/dbg/array_test.o:  compile  array_test.c
+build out/dbg/array_test.o:  compile array_test.c
     cc = $dbg
 build out/dbg/array_test:    link out/dbg/array_test.o out/dbg/array.o
     cc = $dbg
 build out/dbg/array_test.ok: run  out/dbg/array_test
+
+build out/dbg/hash.o:        compile hash.c
+    cc = $dbg
+build out/dbg/hash_test.o:   compile hash_test.c
+    cc = $dbg
+build out/dbg/hash_test:     link out/dbg/hash_test.o out/dbg/hash.o
+    cc = $dbg
+build out/dbg/hash_test.ok:  run  out/dbg/hash_test
