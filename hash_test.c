@@ -9,7 +9,9 @@ static _Bool match_expected(int val, void *ctx) {
 static void test(int (*hash_fn)(int)) {
     struct hash *h = NULL;
     for (int i = 0; i < 100; i += 2) {
+        expect(!hash_lookup(h, hash_fn(i), match_expected, &i));
         h = hash_insert(h, hash_fn(i), i);
+        expect( hash_lookup(h, hash_fn(i), match_expected, &i));
     }
     for (int i = 0; i < 100; i += 2) {
         expect( hash_lookup(h, hash_fn(i), match_expected, &i));
