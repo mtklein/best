@@ -21,6 +21,21 @@ static void test(unsigned (*hash_fn)(int)) {
     free(h);
 }
 
+static void bench(int loops, unsigned (*hash_fn)(int)) {
+    struct hash *h = NULL;
+    for (int i = 0; i < 100; i += 2) {
+        h = hash_insert(h, hash_fn(i), i);
+    }
+    while (loops --> 0) {
+        for (int i = 0; i < 100; i += 2) {
+            (void)hash_lookup(h, hash_fn(i), match_expected, &i);
+            int odd = i+1;
+            (void)hash_lookup(h, hash_fn(i), match_expected, &odd);
+        }
+    }
+    free(h);
+}
+
 static unsigned zero(int x) {
     (void)x;
     return 0;
@@ -43,9 +58,12 @@ static unsigned murmur3_scramble(int x) {
     return bits;
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
     test(zero);
     test(identity);
     test(murmur3_scramble);
+    if (argc > 1) {
+        bench(atoi(argv[1]), murmur3_scramble);
+    }
     return 0;
 }
