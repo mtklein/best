@@ -1,50 +1,52 @@
 #include "hash.h"
-#include <stdbool.h>
 #include <stdlib.h>
 
 struct hash {
     unsigned len,cap;
-    struct { unsigned hash; int val; } table[];
+    struct slot { unsigned hash; int val; } slot[];
 };
 
 static void insert(struct hash *h, unsigned hash, int val) {
-    for (unsigned i = hash % h->cap; ; i = (i+1) % h->cap) {
-        if (h->table[i].hash == 0) {
-            h->table[i].hash = hash;
-            h->table[i].val  = val;
+    for (struct slot *s = h->slot + (hash % h->cap), *end = h->slot + h->cap;;) {
+        if (s->hash == 0) {
+            s->hash = hash;
+            s->val  = val;
             h->len++;
             break;
         }
+        if (++s == end) { s = h->slot; }
     }
 }
 
 struct hash* hash_insert(struct hash *h, unsigned hash, int val) {
-    hash = hash ? hash : 1;
     unsigned const len = h ? h->len : 0,
                    cap = h ? h->cap : 0;
     if (len >= 7*cap/8) {
         unsigned const growth = cap ? 2*cap : 8;
-        struct hash   *grown  = calloc(1, sizeof *grown + growth * sizeof *grown->table);
+        struct hash   *grown  = calloc(1, sizeof *grown + growth * sizeof *grown->slot);
         grown->cap = growth;
-        for (unsigned i = 0; i < cap; i++) {
-            if (h->table[i].hash) {
-                insert(grown, h->table[i].hash, h->table[i].val);
+        if (h) {
+            for (struct slot *s = h->slot; s != h->slot + h->cap; s++) {
+                if (s->hash) {
+                    insert(grown, s->hash, s->val);
+                }
             }
+            free(h);
         }
-        free(h);
         h = grown;
     }
-    insert(h,hash,val);
+    insert(h, hash ? hash : 1, val);
     return h;
 }
 
-bool hash_lookup(struct hash const *h, unsigned hash, bool(*match)(int, void*), void *ctx) {
+_Bool hash_lookup(struct hash const *h, unsigned hash, _Bool(*match)(int, void*), void *ctx) {
     hash = hash ? hash : 1;
     if (h) {
-        for (unsigned i = hash % h->cap; ; i = (i+1) % h->cap) {
-            if (h->table[i].hash == 0) { break; }
-            if (h->table[i].hash == hash && match(h->table[i].val, ctx)) { return true; }
+        for (struct slot const *s = h->slot + (hash % h->cap), *end = h->slot + h->cap;;) {
+            if (s->hash == 0) { break; }
+            if (s->hash == hash && match(s->val, ctx)) { return 1; }
+            if (++s == end) { s = h->slot; }
         }
     }
-    return false;
+    return 0;
 }
