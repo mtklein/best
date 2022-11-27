@@ -6,7 +6,7 @@ static _Bool match_expected(int val, void *ctx) {
     return val == *(int const*)ctx;
 }
 
-static void test(int (*hash_fn)(int)) {
+static void test(unsigned (*hash_fn)(int)) {
     struct hash *h = NULL;
     for (int i = 0; i < 100; i += 2) {
         expect(!hash_lookup(h, hash_fn(i), match_expected, &i));
@@ -21,13 +21,13 @@ static void test(int (*hash_fn)(int)) {
     free(h);
 }
 
-static int zero(int x) {
+static unsigned zero(int x) {
     (void)x;
     return 0;
 }
 
-static int identity(int x) {
-    return x;
+static unsigned identity(int x) {
+    return (unsigned)x;
 }
 
 __attribute__((no_sanitize("unsigned-shift-base")))
@@ -35,12 +35,12 @@ static unsigned rotate(unsigned x, int bits) {
     return (x << bits) | (x >> (32-bits));
 }
 
-static int murmur3_scramble(int x) {
+static unsigned murmur3_scramble(int x) {
     unsigned bits = (unsigned)x;
     (void)__builtin_mul_overflow(bits, 0xcc9e2d51, &bits);
     bits = rotate(bits, 15);
     (void)__builtin_mul_overflow(bits, 0x1b873593, &bits);
-    return (int)bits;
+    return bits;
 }
 
 int main(void) {
