@@ -1,7 +1,8 @@
 builddir = out
 
-cc = clang -Weverything -Wno-poison-system-directories
-dbg = $cc -fsanitize=address,integer,undefined -fno-sanitize-recover=all
+cc   = clang -Weverything -Wno-poison-system-directories
+asan = $cc -fno-sanitize-recover=all -fsanitize=address,integer,undefined
+tsan = $cc -fno-sanitize-recover=all -fsanitize=thread
 
 rule compile
     command = $cc -g -Os -Werror -fcolor-diagnostics -MD -MF $out.d -c $in -o $out
@@ -24,18 +25,39 @@ build out/opt/hash_test.o:   compile      hash_test.c
 build out/opt/hash_test:     link out/opt/hash_test.o out/opt/hash.o
 build out/opt/hash_test.ok:  run  out/opt/hash_test
 
-build out/dbg/array.o:       compile array.c
-    cc = $dbg
-build out/dbg/array_test.o:  compile array_test.c
-    cc = $dbg
-build out/dbg/array_test:    link out/dbg/array_test.o out/dbg/array.o
-    cc = $dbg
-build out/dbg/array_test.ok: run  out/dbg/array_test
+build out/opt/once.o:        compile      once.c
+build out/opt/once_test.o:   compile      once_test.c
+build out/opt/once_test:     link out/opt/once_test.o out/opt/once.o
+build out/opt/once_test.ok:  run  out/opt/once_test
 
-build out/dbg/hash.o:        compile hash.c
-    cc = $dbg
-build out/dbg/hash_test.o:   compile hash_test.c
-    cc = $dbg
-build out/dbg/hash_test:     link out/dbg/hash_test.o out/dbg/hash.o
-    cc = $dbg
-build out/dbg/hash_test.ok:  run  out/dbg/hash_test
+build out/asan/array.o:       compile array.c
+    cc = $asan
+build out/asan/array_test.o:  compile array_test.c
+    cc = $asan
+build out/asan/array_test:    link out/asan/array_test.o out/asan/array.o
+    cc = $asan
+build out/asan/array_test.ok: run  out/asan/array_test
+
+build out/asan/hash.o:        compile hash.c
+    cc = $asan
+build out/asan/hash_test.o:   compile hash_test.c
+    cc = $asan
+build out/asan/hash_test:     link out/asan/hash_test.o out/asan/hash.o
+    cc = $asan
+build out/asan/hash_test.ok:  run  out/asan/hash_test
+
+build out/asan/once.o:        compile once.c
+    cc = $asan
+build out/asan/once_test.o:   compile once_test.c
+    cc = $asan
+build out/asan/once_test:     link out/asan/once_test.o out/asan/once.o
+    cc = $asan
+build out/asan/once_test.ok:  run  out/asan/once_test
+
+build out/tsan/once.o:        compile once.c
+    cc = $tsan
+build out/tsan/once_test.o:   compile once_test.c
+    cc = $tsan
+build out/tsan/once_test:     link out/tsan/once_test.o out/tsan/once.o
+    cc = $tsan
+build out/tsan/once_test.ok:  run  out/tsan/once_test
