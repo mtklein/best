@@ -8,25 +8,25 @@ static _Bool match_pointee(int val, void *ctx) {
 static void test(int const n, unsigned (*hash_fn)(int)) {
     struct hash *h = NULL;
     for (int i = 0; i < n; i += 2) {
-        expect(!hash_lookup(h, hash_fn(i), match_pointee, &i));
-        h = hash_insert(h, hash_fn(i), i);
-        expect( hash_lookup(h, hash_fn(i), match_pointee, &i));
+        expect(!hash_lookup(h,i/2, hash_fn(i), match_pointee, &i));
+        h = hash_insert(h,i/2, hash_fn(i), i);
+        expect( hash_lookup(h,i/2+1, hash_fn(i), match_pointee, &i));
     }
     for (int i = 0; i < n; i++) {
-        expect( hash_lookup(h, hash_fn(i), match_pointee, &i));
+        expect( hash_lookup(h,n/2, hash_fn(i), match_pointee, &i));
         i++;
-        expect(!hash_lookup(h, hash_fn(i), match_pointee, &i));
+        expect(!hash_lookup(h,n/2, hash_fn(i), match_pointee, &i));
     }
     free(h);
 }
 static void bench(int const n, unsigned (*hash_fn)(int), int loops) {
     struct hash *h = NULL;
     for (int i = 0; i < n; i += 2) {
-        h = hash_insert(h, hash_fn(i), i);
+        h = hash_insert(h,i/2, hash_fn(i), i);
     }
     while (loops --> 0) {
         for (int i = 0; i < n; i++) {
-            (void)hash_lookup(h, hash_fn(i), match_pointee, &i);
+            (void)hash_lookup(h,n/2, hash_fn(i), match_pointee, &i);
         }
     }
     free(h);
