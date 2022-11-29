@@ -11,12 +11,10 @@ static unsigned slots_for(int vals) {
 }
 
 static void just_insert(int *h, unsigned slots, unsigned hash, int val) {
-    int *it = h + (hash & (slots-1));
-    while (*it) {                         // Looking for empty slot.
-        if (++it == h+slots) { it = h; }  // Wrap if we walk off the end.
-    }
-    *it = (int)hash;
-    it[slots] = val;
+    unsigned i;
+    for (i = hash & (slots-1); h[i]; i = (i+1) & (slots-1));
+    h[i] = (int)hash;
+    h[i+slots] = val;
 }
 
 int* hash_insert(int *h, int vals, unsigned user, int val) {
@@ -24,9 +22,9 @@ int* hash_insert(int *h, int vals, unsigned user, int val) {
     unsigned const need = slots_for(vals+1);
     if (have < need) {
         int *grown = calloc(2*need, sizeof *grown);
-        for (int *it = h; h && it != h+have; it++) {
-            if (*it) {
-                just_insert(grown,need, (unsigned)*it, it[have]);
+        for (unsigned i = 0; h && i != have; i++) {
+            if (h[i]) {
+                just_insert(grown,need, (unsigned)h[i], h[i+have]);
             }
         }
         free(h);
@@ -41,9 +39,8 @@ _Bool hash_lookup(int const *h, int vals, unsigned user, _Bool(*match)(int, void
     unsigned const hash = user ? user : 1,
                   slots = slots_for(vals);
     if (h) {
-        for (int const *it = h + (hash & (slots-1)); *it;) {
-            if ((unsigned)*it == hash && match(it[slots], ctx)) { return 1; }
-            if (++it == h+slots) { it = h; }
+        for (unsigned i = hash & (slots-1); h[i]; i = (i+1) & (slots-1)) {
+            if ((unsigned)h[i] == hash && match(h[i+slots], ctx)) { return 1; }
         }
     }
     return 0;
