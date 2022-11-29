@@ -1,12 +1,13 @@
 #include "hash.h"
 #include "test.h"
 #include <stdlib.h>
+//#include <malloc/malloc.h>
 
 static _Bool match_pointee(int val, void *ctx) {
     return val == *(int const*)ctx;
 }
 static void test(int const n, unsigned (*hash_fn)(int)) {
-    struct hash *h = NULL;
+    int *h = NULL;
     for (int i = 0; i < n; i += 2) {
         expect(!hash_lookup(h,i/2, hash_fn(i), match_pointee, &i));
         h = hash_insert(h,i/2, hash_fn(i), i);
@@ -17,10 +18,23 @@ static void test(int const n, unsigned (*hash_fn)(int)) {
         i++;
         expect(!hash_lookup(h,n/2, hash_fn(i), match_pointee, &i));
     }
+
+#if defined(_MALLOC_MALLOC_H_)
+    size_t const slots = (malloc_size(h) / sizeof *h) / 2;
+    dprintf(1, "%zu slots\n", slots);
+    for (size_t i = 0; i < slots; i++) {
+        if (h[i]) {
+            dprintf(1, "%zu\t0x%08x %d\n", i, h[i], h[i+slots]);
+        } else {
+            dprintf(1, "%zu\t~~~~~~~~~~\n", i);
+        }
+    }
+#endif
+
     free(h);
 }
 static void bench(int const n, unsigned (*hash_fn)(int), int loops) {
-    struct hash *h = NULL;
+    int *h = NULL;
     for (int i = 0; i < n; i += 2) {
         h = hash_insert(h,i/2, hash_fn(i), i);
     }
