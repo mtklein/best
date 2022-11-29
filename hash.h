@@ -1,7 +1,8 @@
 #pragma once
 
 struct hash {
-    unsigned  vals,slots;
+    int      vals;
+    unsigned mask;
     unsigned *hash;
     int      *val;
 };
