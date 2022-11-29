@@ -4,7 +4,6 @@
 static void just_insert(struct hash *h, unsigned hash, int val) {
     unsigned *hptr = h->data;
     int      *vptr = (int*)(hptr + h->slots);
-
     unsigned i, mask = (unsigned)h->slots - 1;
     for (i = hash & mask; hptr[i]; i = (i+1) & mask);
     hptr[i] = hash;
@@ -16,7 +15,6 @@ void hash_insert(struct hash *h, unsigned user, int val) {
          min_empty = vals / 3,                                 // Freely tune memory vs performance.
              slots = vals + (min_empty ? min_empty : 1),       // Must keep at least one empty slot.
               need = 1<<(32-__builtin_clz((unsigned)slots-1)); // Round up to a power of 2.
-
     if (h->slots < need) {
         struct hash grown = {
             .vals  = h->vals,
