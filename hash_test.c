@@ -6,30 +6,32 @@ static _Bool match_pointee(int val, void *ctx) {
     return val == *(int const*)ctx;
 }
 static void test(int const n, unsigned (*hash_fn)(int)) {
-    int *h = NULL;
+    struct hash h = {0};
     for (int i = 0; i < n; i += 2) {
-        expect(!hash_lookup(h,i/2, hash_fn(i), match_pointee, &i));
-        h = hash_insert(h,i/2, hash_fn(i), i);
-        expect( hash_lookup(h,i/2+1, hash_fn(i), match_pointee, &i));
+        expect(!hash_lookup(&h, hash_fn(i), match_pointee, &i));
+        hash_insert(&h, hash_fn(i), i);
+        expect( hash_lookup(&h, hash_fn(i), match_pointee, &i));
     }
     for (int i = 0; i < n; i++) {
-        expect( hash_lookup(h,n/2, hash_fn(i), match_pointee, &i));
+        expect( hash_lookup(&h, hash_fn(i), match_pointee, &i));
         i++;
-        expect(!hash_lookup(h,n/2, hash_fn(i), match_pointee, &i));
+        expect(!hash_lookup(&h, hash_fn(i), match_pointee, &i));
     }
-    free(h);
+    free(h.hash);
+    free(h.val);
 }
 static void bench(int const n, unsigned (*hash_fn)(int), int loops) {
-    int *h = NULL;
+    struct hash h = {0};
     for (int i = 0; i < n; i += 2) {
-        h = hash_insert(h,i/2, hash_fn(i), i);
+        hash_insert(&h, hash_fn(i), i);
     }
     while (loops --> 0) {
         for (int i = 0; i < n; i++) {
-            (void)hash_lookup(h,n/2, hash_fn(i), match_pointee, &i);
+            (void)hash_lookup(&h, hash_fn(i), match_pointee, &i);
         }
     }
-    free(h);
+    free(h.hash);
+    free(h.val);
 }
 
 __attribute__((no_sanitize("unsigned-integer-overflow", "unsigned-shift-base")))
