@@ -13,8 +13,9 @@ static void just_insert(struct hash *h, unsigned hash, int val) {
 
 void hash_insert(struct hash *h, unsigned user, int val) {
     if (h->vals/3 >= h->slots/4) {
-        int const   need  = h->slots ? 2*h->slots : 2;
-        struct hash grown = {h->vals, need, calloc((unsigned)need, sizeof(unsigned)+sizeof(int))};
+        struct hash grown = {.vals=h->vals, .slots=h->slots ? 2*h->slots : 2};
+        grown.data = calloc((unsigned)grown.slots, sizeof(unsigned) + sizeof(int));
+
         if (h->vals) {
             unsigned const *hptr = h->data;
             int      const *vptr = (int const*)(hptr + h->slots);
