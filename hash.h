@@ -2,8 +2,8 @@
 
 // Create zeroed, struct hash h = {0}; clean up with free(h.data).
 struct hash {
-    int  vals,slots;
-    void *data;
+    unsigned vals,slots;
+    void    *data;
 };
 
 void  hash_insert(struct hash*, unsigned hash, int val);
