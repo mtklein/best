@@ -40,7 +40,9 @@ _Bool hash_lookup(struct hash h, unsigned user, _Bool(*match)(int, void*), void 
         int      const *vptr = (int const*)(hptr + h.slots);
 
         for (unsigned i = hash & mask; hptr[i]; i = (i+1) & mask) {
-            if (hptr[i] == hash && match(vptr[i], ctx)) { return 1; }
+            if (hptr[i] == hash && (match ? match(vptr[i], ctx) : vptr[i] == (int)(intptr_t)ctx)) {
+                return 1;
+            }
         }
     }
     return 0;

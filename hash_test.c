@@ -12,10 +12,13 @@ static void test(int const n, unsigned (*hash_fn)(int)) {
         hash_insert(&h, hash_fn(i), i);
         expect( hash_lookup(h, hash_fn(i), match_pointee, &i));
     }
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i += 1) {
         expect( hash_lookup(h, hash_fn(i), match_pointee, &i));
         i++;
         expect(!hash_lookup(h, hash_fn(i), match_pointee, &i));
+    }
+    for (int i = 0; i < n; i += 2) {
+        expect(hash_lookup(h, hash_fn(i), NULL, (void*)(intptr_t)i));
     }
     free(h.data);
 }
@@ -26,7 +29,7 @@ static void bench(int const n, unsigned (*hash_fn)(int), int loops) {
     }
     while (loops --> 0) {
         for (int i = 0; i < n; i++) {
-            (void)hash_lookup(h, hash_fn(i), match_pointee, &i);
+            (void)hash_lookup(h, hash_fn(i), NULL, (void*)(intptr_t)i);
         }
     }
     free(h.data);
