@@ -32,29 +32,20 @@ void hash_insert(struct hash *h, unsigned user, int val) {
     h->vals++;
 }
 
-#define walk                                                   \
-    unsigned const  hash = user ? user : 1,                    \
-                    mask = h.slots - 1;                        \
-    unsigned const *hptr = h.data;                             \
-    int      const *vptr = (int const*)(hptr + h.slots);       \
-    for (unsigned i = hash & mask; hptr[i]; i = (i+1) & mask)
+#define walk unsigned const *hptr = h.data, hash = user ? user : 1, mask = h.slots - 1; \
+             int      const *vptr = (int const*)(hptr + h.slots);                       \
+             for (unsigned i = hash & mask; hptr[i]; i = (i+1) & mask)
 
 __attribute__((cold))
 static _Bool hash_lookup_slow(struct hash h, unsigned user, _Bool(*match)(int, void*), void *ctx) {
-    walk {
-        if (hptr[i] == hash && match(vptr[i], ctx)) { return 1; }
-    }
+    walk { if (hptr[i] == hash && match(vptr[i], ctx)) { return 1; } }
     return 0;
 }
 
 _Bool hash_lookup(struct hash h, unsigned user, _Bool(*match)(int, void*), void *ctx) {
     if (h.vals) {
-        if (match) {
-            return hash_lookup_slow(h,user,match,ctx);
-        }
-        walk {
-            if (hptr[i] == hash && vptr[i] == (int)(intptr_t)ctx) { return 1; }
-        }
+        if (match) { return hash_lookup_slow(h,user,match,ctx); }
+        walk { if (hptr[i] == hash && vptr[i] == (int)(intptr_t)ctx) { return 1; } }
     }
     return 0;
 }
