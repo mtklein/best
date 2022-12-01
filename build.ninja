@@ -1,6 +1,6 @@
 builddir = out
 
-cc   = clang -Weverything -Wno-poison-system-directories
+cc   = clang -Weverything -Xclang -nostdsysteminc
 asan = $cc -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 tsan = $cc -fno-sanitize-recover=all -fsanitize=thread
 
