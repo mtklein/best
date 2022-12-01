@@ -43,7 +43,7 @@ static _Bool hash_lookup_slow(struct hash h, unsigned user, _Bool(*match)(int, v
 }
 
 _Bool hash_lookup(struct hash h, unsigned user, _Bool(*match)(int, void*), void *ctx) {
-    if (h.vals) {
+    if (h.data) {
         if (match) return hash_lookup_slow(h,user,match,ctx);
         walk { if (hptr[i] == hash && vptr[i] == (intptr_t)ctx) return 1; }
     }
