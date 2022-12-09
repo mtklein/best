@@ -1,6 +1,7 @@
 #include "array.h"
 #include "test.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 int main(void) {
     float *ptr = NULL;
@@ -28,8 +29,15 @@ int main(void) {
         ptr = push_back(ptr, len);
         ptr[len++] = (float)i;
     }
-    ptr = drop_back(ptr,0);
+    ptr = drop_back(ptr, len=0);
     expect(ptr == NULL);
 
+    // Let's see how big we can go.
+    len = 0x40000000;
+    ptr = malloc((size_t)len * sizeof *ptr);
+    ptr = push_back(ptr, len);
+    ptr[len++] = 42.0f;
+
+    drop_back(ptr, len=0);
     return 0;
 }
