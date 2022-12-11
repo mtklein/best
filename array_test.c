@@ -34,7 +34,6 @@ int main(void) {
 
     // Let's see how big we can go.
     len = 0x40000000;
-    ptr = malloc((size_t)len * sizeof *ptr);
     ptr = push_back(ptr, len);
     ptr[len++] = 42.0f;
 
