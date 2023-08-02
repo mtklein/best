@@ -35,7 +35,9 @@ static void bench(int const n, unsigned (*hash_fn)(int), int loops) {
     free(h.data);
 }
 
-__attribute__((no_sanitize("unsigned-integer-overflow", "unsigned-shift-base")))
+#if defined(__clang__)
+    __attribute__((no_sanitize("unsigned-integer-overflow", "unsigned-shift-base")))
+#endif
 static unsigned murmur3_scramble(int x) {
     unsigned bits = (unsigned)x * 0xcc9e2d51;
     bits = (bits << 15) | (bits >> 17);

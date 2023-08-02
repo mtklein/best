@@ -1,6 +1,14 @@
 #include "once.h"
 #include "test.h"
-#include <pthread.h>
+#include <stddef.h>
+
+#if defined(__wasm__)
+    typedef int pthread_t;
+    #define pthread_create(th,attr,fn,ctx) fn(ctx)
+    #define pthread_join(th,rc)
+#else
+    #include <pthread.h>
+#endif
 
 #define len(arr) (int)(sizeof arr / sizeof *arr)
 
