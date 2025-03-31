@@ -1,6 +1,5 @@
 #include "array.h"
 #include "test.h"
-#include <stddef.h>
 #include <stdlib.h>
 
 int main(void) {
