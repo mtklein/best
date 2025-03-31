@@ -142,7 +142,7 @@ int fdiv(struct builder *b, int x, int y) { return push(b, fn_fdiv, .x=x, .y=y);
 
 static defn(fsqrt) {
     for (int l = 0; l < K; l++) {
-        r->f32[l] = v[ip->x].f32[l];
+        r->f32[l] = sqrtf(v[ip->x].f32[l]);
     }
     next;
 }
