@@ -22,17 +22,24 @@ union val {
     U32 u32;
 };
 
-struct inst {
-    void (*fn)(struct inst const *ip, union val *r, union val const *v,
+struct pinst {
+    void (*fn)(struct pinst const *ip, union val *r, union val const *v,
+               int i, int lanes, void* ptr[]);
+    int x,y,z;
+    uint32_t imm;
+};
+
+struct binst {
+    void (*fn)(struct pinst const *ip, union val *r, union val const *v,
                int i, int lanes, void* ptr[]);
     int x,y,z;
     uint32_t imm;
 };
 
 struct builder {
-    int          insts,padding;
-    struct inst *inst;
-    struct hash  cse;
+    int           insts,padding;
+    struct binst *inst;
+    struct hash   cse;
 };
 
 struct builder* builder(void) {
@@ -42,7 +49,7 @@ struct builder* builder(void) {
 
 struct cse_ctx {
     struct builder const *b;
-    struct inst    const *inst;
+    struct binst   const *inst;
     int                   id,padding;
 };
 
@@ -64,7 +71,7 @@ static unsigned fnv1a(void const *v, size_t len) {
     return hash;
 }
 
-static int push_(struct builder *b, struct inst inst) {
+static int push_(struct builder *b, struct binst inst) {
     unsigned const hash = fnv1a(&inst, sizeof inst);
     struct cse_ctx cse_ctx = {.b=b,.inst=&inst};
     if (hash_lookup(b->cse, hash, match_cse, &cse_ctx)) {
@@ -79,9 +86,9 @@ static int push_(struct builder *b, struct inst inst) {
     hash_insert(&b->cse, hash, id);
     return id;
 }
-#define push(b, ...) push_(b, (struct inst){.fn=__VA_ARGS__})
+#define push(b, ...) push_(b, (struct binst){.fn=__VA_ARGS__})
 
-#define defn(name) void fn_##name(struct inst const *ip, union val *r, union val const *v, \
+#define defn(name) void fn_##name(struct pinst const *ip, union val *r, union val const *v, \
                                   int i, int lanes, void* ptr[])
 #define next ip[1].fn(ip+1,r+1,v,i,lanes,ptr); return
 
@@ -194,8 +201,8 @@ static defn(bsel) {
 int bsel(struct builder *b, int x, int y, int z) { return push(b, fn_bsel, .x=x, .y=y, .z=z); }
 
 struct program {
-    int         insts,padding;
-    struct inst inst[];
+    int          insts,padding;
+    struct pinst inst[];
 };
 
 static defn(ret) {
@@ -210,9 +217,15 @@ static defn(ret) {
 struct program* ret(struct builder *b) {
     push(b, fn_ret);
 
-    struct program *p = calloc(1, sizeof *p + (size_t)b->insts * sizeof *b->inst);
-    for (int i = 0; i < b->insts; i++) {
-        p->inst[p->insts++] = b->inst[i];
+    struct program *p = calloc(1, sizeof *p + (size_t)b->insts * sizeof *p->inst);
+    for (struct binst const *inst = b->inst; inst < b->inst+b->insts; inst++) {
+        struct pinst *pinst = p->inst + p->insts++;
+
+        pinst->fn  = inst->fn;
+        pinst->x   = inst->x;
+        pinst->y   = inst->y;
+        pinst->z   = inst->z;
+        pinst->imm = inst->imm;
     }
 
     free(b->inst);
