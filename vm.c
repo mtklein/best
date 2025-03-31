@@ -1,12 +1,13 @@
 #include "array.h"
+#include "hash.h"
 #include "vm.h"
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 // TODO:
 //   [ ] dead code elimination
 //   [ ] constant propagation
-//   [ ] common subexpression elimination
 //   [ ] loop-invariant hoisting
 //   [ ] misc. strength reduction
 
@@ -29,8 +30,9 @@ struct inst {
 };
 
 struct builder {
-    int          insts,unused;
+    int          insts,padding;
     struct inst *inst;
+    struct hash  cse;
 };
 
 struct builder* builder(void) {
@@ -38,10 +40,44 @@ struct builder* builder(void) {
     return b;
 }
 
+struct cse_ctx {
+    struct builder const *b;
+    struct inst    const *inst;
+    int                   id,padding;
+};
+
+static _Bool match_cse(int id, void *vctx) {
+    struct cse_ctx *ctx = vctx;
+    if (0 == memcmp(ctx->b->inst+id, ctx->inst, sizeof *ctx->inst)) {
+        ctx->id = id;
+        return 1;
+    }
+    return 0;
+}
+
+static unsigned fnv1a(void const *v, size_t len) {
+    unsigned hash = 0x811c9dc5;
+    for (unsigned char const *b=v, *end=b+len; b != end; b++) {
+        hash ^= *b;
+        __builtin_mul_overflow(hash, 0x01000193, &hash);
+    }
+    return hash;
+}
+
 static int push_(struct builder *b, struct inst inst) {
+    unsigned const hash = fnv1a(&inst, sizeof inst);
+    struct cse_ctx cse_ctx = {.b=b,.inst=&inst};
+    if (hash_lookup(b->cse, hash, match_cse, &cse_ctx)) {
+        return cse_ctx.id;
+    }
+
     b->inst = push_back(b->inst, b->insts);
     b->inst[b->insts] = inst;
-    return b->insts++;
+
+    int const id = b->insts++;
+    // TODO: don't CSE things with side effects, e.g. fn_scatter
+    hash_insert(&b->cse, hash, id);
+    return id;
 }
 #define push(b, ...) push_(b, (struct inst){.fn=__VA_ARGS__})
 
@@ -158,7 +194,7 @@ static defn(bsel) {
 int bsel(struct builder *b, int x, int y, int z) { return push(b, fn_bsel, .x=x, .y=y, .z=z); }
 
 struct program {
-    int         insts,unused;
+    int         insts,padding;
     struct inst inst[];
 };
 
@@ -180,6 +216,7 @@ struct program* ret(struct builder *b) {
     }
 
     free(b->inst);
+    free(b->cse.data);
     free(b);
     return p;
 }
