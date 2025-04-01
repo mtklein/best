@@ -5,9 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO:
-//   [ ] misc. strength reduction
-
 #define K 16
 typedef float    __attribute__((vector_size(4*K))) F32;
 typedef int32_t  __attribute__((vector_size(4*K))) I32;
@@ -228,12 +225,33 @@ int band(struct builder *b, int x, int y) { return push(b, fn_band, .x=x, .y=y, 
 int bor (struct builder *b, int x, int y) { return push(b, fn_bor , .x=x, .y=y, .symmetric=1); }
 int bxor(struct builder *b, int x, int y) { return push(b, fn_bxor, .x=x, .y=y, .symmetric=1); }
 
+static defn(fmin) {
+    I32 lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
+    r->i32 = ( lt & v[ip->x].i32)
+           | (~lt & v[ip->y].i32);
+    next;
+}
+static defn(fmax) {
+    I32 lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
+    r->i32 = ( lt & v[ip->y].i32)
+           | (~lt & v[ip->x].i32);
+    next;
+}
+
 static defn(bsel) {
     r->i32 = ( v[ip->x].i32 & v[ip->y].i32)
            | (~v[ip->x].i32 & v[ip->z].i32);
     next;
 }
-int bsel(struct builder *b, int x, int y, int z) { return push(b, fn_bsel, .x=x, .y=y, .z=z); }
+int bsel(struct builder *b, int x, int y, int z) {
+    if (b->inst[x].fn == fn_flt && b->inst[x].x == y && b->inst[x].y == z) {
+        return push(b, fn_fmin, .x=y, .y=z, .symmetric=1);
+    }
+    if (b->inst[x].fn == fn_flt && b->inst[x].x == z && b->inst[x].y == y) {
+        return push(b, fn_fmax, .x=y, .y=z, .symmetric=1);
+    }
+    return push(b, fn_bsel, .x=x, .y=y, .z=z);
+}
 
 struct builder* builder(void) {
     struct builder *b = calloc(1, sizeof *b);
