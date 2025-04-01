@@ -6,7 +6,6 @@
 #include <string.h>
 
 // TODO:
-//   [ ] loop-invariant hoisting
 //   [ ] misc. strength reduction
 
 #define K 16
@@ -37,8 +36,10 @@ struct binst {
     int x,y,z;
     uint32_t imm;
 
-    enum { IMM, UNI, VAR, LIVE } kind;
-    int                          id;
+    enum { IMM, UNI, VAR, MEM } kind :  2;
+    _Bool                       live :  1;
+    int                         pad  : 29;
+    int                         id;
 };
 
 struct builder {
@@ -110,7 +111,7 @@ static int push_(struct builder *b, struct binst inst) {
     b->inst[b->insts] = inst;
 
     int const id = b->insts++;
-    if (inst.kind < LIVE) {
+    if (inst.kind < MEM) {
         hash_insert(&b->cse, hash, id);
     }
     return id;
@@ -141,7 +142,7 @@ static defn(gather) {
     next;
 }
 int ld(struct builder *b, int ptr, int off) {
-    return push(b, fn_gather, .x=ptr, .y=off, .kind=VAR);
+    return push(b, fn_gather, .x=ptr, .y=off, .kind=MEM);
 }
 
 static defn(scatter) {
@@ -153,7 +154,7 @@ static defn(scatter) {
     next;
 }
 void st(struct builder *b, int ptr, int off, int val) {
-    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=LIVE);
+    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=MEM, .live=1);
 }
 
 static defn(iadd) { r->i32 = v[ip->x].i32 + v[ip->y].i32; next; }
@@ -235,19 +236,19 @@ struct builder* builder(void) {
 }
 
 struct program {
-    int          insts,padding;
+    int          insts,loop;
     struct pinst inst[];
 };
 
 struct program* ret(struct builder *b) {
-    push(b, fn_ret, .kind=LIVE);
+    push(b, fn_ret, .kind=MEM, .live=1);
 
     int live = 0;
     for (struct binst *inst = b->inst+b->insts; inst --> b->inst;) {
-        if (inst->kind == LIVE) {
-            b->inst[inst->x].kind = LIVE;
-            b->inst[inst->y].kind = LIVE;
-            b->inst[inst->z].kind = LIVE;
+        if (inst->live) {
+            b->inst[inst->x].live = 1;
+            b->inst[inst->y].live = 1;
+            b->inst[inst->z].live = 1;
         } else {
             inst->fn = NULL;
         }
@@ -255,17 +256,22 @@ struct program* ret(struct builder *b) {
     }
 
     struct program *p = calloc(1, sizeof *p + (size_t)live * sizeof *p->inst);
-    for (struct binst *inst = b->inst; inst < b->inst+b->insts; inst++) {
-        if (inst->fn) {
-            struct pinst *pinst = p->inst + p->insts;
 
-            pinst->fn  = inst->fn;
-            pinst->x   = b->inst[inst->x].id;
-            pinst->y   = b->inst[inst->y].id;
-            pinst->z   = b->inst[inst->z].id;
-            pinst->imm = inst->imm;
+    for (int varying = 0; varying < 2; varying++) {
+        if (varying) {
+            p->loop = p->insts;
+        }
+        for (struct binst *inst = b->inst; inst < b->inst+b->insts; inst++) {
+            if (inst->fn && varying == (inst->kind >= VAR)) {
+                struct pinst *pinst = p->inst + p->insts;
+                pinst->fn  = inst->fn;
+                pinst->x   = b->inst[inst->x].id;
+                pinst->y   = b->inst[inst->y].id;
+                pinst->z   = b->inst[inst->z].id;
+                pinst->imm = inst->imm;
 
-            inst->id = p->insts++;
+                inst->id = p->insts++;
+            }
         }
     }
 
@@ -278,9 +284,12 @@ struct program* ret(struct builder *b) {
 void run(struct program const *p, int N, void* ptr[]) {
     union val *v = calloc((size_t)p->insts, sizeof *v);
 
+    struct pinst const *start = p->inst, *loop  = start + p->loop;
+    union  val         *r     = v,       *loopr =     r + p->loop;
+
     int i = 0;
-    while (i < N/K*K) { p->inst->fn(p->inst,v,v,i,  K,ptr); i += K; }
-    if    (i < N    ) { p->inst->fn(p->inst,v,v,i,N-i,ptr);         }
+    while (i < N/K*K) { start->fn(start,r,v,i,  K,ptr); i += K; start=loop; r=loopr; }
+    if    (i < N    ) { start->fn(start,r,v,i,N-i,ptr);                              }
 
     free(v);
 }
