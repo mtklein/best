@@ -39,11 +39,11 @@ struct binst {
     int x,y,z;
     uint32_t imm;
 
-    enum { IMM, UNI, VAR } kind :  2;
-    _Bool                  live :  1;
-    _Bool             symmetric :  1;
-    int                     pad : 28;
-    int                      id     ;
+    enum { IMM, UNI, VAR } shape :  2;
+    _Bool                   live :  1;
+    _Bool              symmetric :  1;
+    int                      pad : 28;
+    int                       id     ;
 };
 
 struct builder {
@@ -87,11 +87,11 @@ static unsigned fnv1a(void const *v, size_t len) {
 }
 
 static int push_(struct builder *b, struct binst inst) {
-    if (inst.kind < b->inst[inst.x].kind) { inst.kind = b->inst[inst.x].kind; }
-    if (inst.kind < b->inst[inst.y].kind) { inst.kind = b->inst[inst.y].kind; }
-    if (inst.kind < b->inst[inst.z].kind) { inst.kind = b->inst[inst.z].kind; }
+    if (inst.shape < b->inst[inst.x].shape) { inst.shape = b->inst[inst.x].shape; }
+    if (inst.shape < b->inst[inst.y].shape) { inst.shape = b->inst[inst.y].shape; }
+    if (inst.shape < b->inst[inst.z].shape) { inst.shape = b->inst[inst.z].shape; }
 
-    if (inst.kind == IMM && (inst.x || inst.y || inst.z)) {
+    if (inst.shape == IMM && (inst.x || inst.y || inst.z)) {
         union val v[4] = {
             {{b->inst[inst.x].imm}},
             {{b->inst[inst.y].imm}},
@@ -134,7 +134,7 @@ static defn(imm) {
     r->u32 = (U32){0} + ip->imm;
     next;
 }
-int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits, .kind=IMM); }
+int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits, .shape=IMM); }
 
 static defn(idx) {
     I32 iota = {0};
@@ -145,7 +145,7 @@ static defn(idx) {
     r->i32 = iota + i;
     next;
 }
-int idx(struct builder *b) { return push(b, fn_idx, .kind=VAR); }
+int idx(struct builder *b) { return push(b, fn_idx, .shape=VAR); }
 
 static defn(uni) {
     typedef int32_t __attribute__((aligned(1))) unaligned_i32;
@@ -163,10 +163,10 @@ static defn(gather) {
     next;
 }
 int ld(struct builder *b, int ptr, int off) {
-    if (b->inst[ptr].kind <= UNI && b->inst[off].kind <= UNI) {
-        return push(b, fn_uni, .x=ptr, .y=off, .kind=UNI);
+    if (b->inst[ptr].shape <= UNI && b->inst[off].shape <= UNI) {
+        return push(b, fn_uni, .x=ptr, .y=off, .shape=UNI);
     }
-    return push(b, fn_gather, .x=ptr, .y=off, .kind=VAR);
+    return push(b, fn_gather, .x=ptr, .y=off, .shape=VAR);
 }
 
 static defn(scatter) {
@@ -178,7 +178,7 @@ static defn(scatter) {
     next;
 }
 void st(struct builder *b, int ptr, int off, int val) {
-    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=VAR, .live=1);
+    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .shape=VAR, .live=1);
 }
 
 static defn(iadd) { r->i32 = v[ip->x].i32 + v[ip->y].i32; next; }
@@ -311,7 +311,7 @@ struct program {
 };
 
 struct program* ret(struct builder *b) {
-    push(b, fn_ret, .kind=VAR, .live=1);
+    push(b, fn_ret, .shape=VAR, .live=1);
 
     int live = 0;
     for (struct binst *inst = b->inst+b->insts; inst --> b->inst;) {
@@ -329,7 +329,7 @@ struct program* ret(struct builder *b) {
 
     for (int hoist = 2; hoist --> 0;) {
         for (struct binst *inst = b->inst; inst < b->inst+b->insts; inst++) {
-            if (inst->fn && hoist == (inst->kind < VAR)) {
+            if (inst->fn && hoist == (inst->shape < VAR)) {
                 struct pinst *pinst = p->inst + p->insts;
                 pinst->fn  = inst->fn;
                 pinst->x   = b->inst[inst->x].id;
