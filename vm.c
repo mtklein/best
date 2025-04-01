@@ -97,7 +97,7 @@ static int push_(struct builder *b, struct binst inst) {
             {.fn=inst.fn, .x=0, .y=1, .z=2, .imm=inst.imm},
             {.fn=fn_ret},
         };
-        ip->fn(ip,v+3,v,0,K,NULL);
+        ip->fn(ip,v+3,v,0,1,NULL);
         return imm(b, v[3].u32[0]);
     }
 
