@@ -102,12 +102,10 @@ static int push_(struct builder *b, struct binst inst) {
     }
 
     unsigned const hash = fnv1a(&inst, sizeof inst);
-
     struct cse_ctx cse_ctx = {.b=b,.inst=&inst};
     if (hash_lookup(b->cse, hash, match_cse, &cse_ctx)) {
         return cse_ctx.id;
     }
-
     b->inst = push_back(b->inst, b->insts);
     b->inst[b->insts] = inst;
 
@@ -127,8 +125,9 @@ static defn(imm) {
 int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits, .kind=IMM); }
 
 static defn(idx) {
-    _Static_assert(K == 16, "");
-    r->i32 = (I32){0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15} + i;
+    for (int l = 0; l < lanes; l++) {
+        r->i32[l] = l + i;
+    }
     next;
 }
 int idx(struct builder *b) { return push(b, fn_idx, .kind=VAR); }
@@ -176,7 +175,7 @@ int fmul(struct builder *b, int x, int y) { return push(b, fn_fmul, .x=x, .y=y);
 int fdiv(struct builder *b, int x, int y) { return push(b, fn_fdiv, .x=x, .y=y); }
 
 static defn(fsqrt) {
-    for (int l = 0; l < K; l++) {
+    for (int l = 0; l < lanes; l++) {
         r->f32[l] = sqrtf(v[ip->x].f32[l]);
     }
     next;
