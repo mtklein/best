@@ -225,22 +225,23 @@ int band(struct builder *b, int x, int y) { return push(b, fn_band, .x=x, .y=y, 
 int bor (struct builder *b, int x, int y) { return push(b, fn_bor , .x=x, .y=y, .symmetric=1); }
 int bxor(struct builder *b, int x, int y) { return push(b, fn_bxor, .x=x, .y=y, .symmetric=1); }
 
+static I32 sel(I32 mask, I32 t, I32 f) {
+    return (mask & t) | (~mask & f);
+}
+
 static defn(fmin) {
-    I32 lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
-    r->i32 = ( lt & v[ip->x].i32)
-           | (~lt & v[ip->y].i32);
+    I32 const lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
+    r->i32 = sel(lt, v[ip->x].i32, v[ip->y].i32);
     next;
 }
 static defn(fmax) {
-    I32 lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
-    r->i32 = ( lt & v[ip->y].i32)
-           | (~lt & v[ip->x].i32);
+    I32 const lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
+    r->i32 = sel(lt, v[ip->y].i32, v[ip->x].i32);
     next;
 }
 
 static defn(bsel) {
-    r->i32 = ( v[ip->x].i32 & v[ip->y].i32)
-           | (~v[ip->x].i32 & v[ip->z].i32);
+    r->i32 = sel(v[ip->x].i32, v[ip->y].i32, v[ip->z].i32);
     next;
 }
 int bsel(struct builder *b, int x, int y, int z) {
