@@ -40,7 +40,7 @@ struct binst {
     uint32_t imm;
 
     enum { IMM, UNI, VAR } kind :  2;
-    _Bool                  must :  1;
+    _Bool                  live :  1;
     _Bool             symmetric :  1;
     int                     pad : 28;
     int                      id     ;
@@ -122,7 +122,7 @@ static int push_(struct builder *b, struct binst inst) {
     b->inst[b->insts] = inst;
 
     int const id = b->insts++;
-    if (!inst.must) {
+    if (!inst.live) {
         hash_insert(&b->cse, hash, id);
     }
     return id;
@@ -178,7 +178,7 @@ static defn(scatter) {
     next;
 }
 void st(struct builder *b, int ptr, int off, int val) {
-    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=VAR, .must=1);
+    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=VAR, .live=1);
 }
 
 static defn(iadd) { r->i32 = v[ip->x].i32 + v[ip->y].i32; next; }
@@ -311,14 +311,14 @@ struct program {
 };
 
 struct program* ret(struct builder *b) {
-    push(b, fn_ret, .kind=VAR, .must=1);
+    push(b, fn_ret, .kind=VAR, .live=1);
 
     int live = 0;
     for (struct binst *inst = b->inst+b->insts; inst --> b->inst;) {
-        if (inst->must) {
-            b->inst[inst->x].must = 1;
-            b->inst[inst->y].must = 1;
-            b->inst[inst->z].must = 1;
+        if (inst->live) {
+            b->inst[inst->x].live = 1;
+            b->inst[inst->y].live = 1;
+            b->inst[inst->z].live = 1;
         } else {
             inst->fn = NULL;
         }
