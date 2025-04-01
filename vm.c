@@ -38,7 +38,8 @@ struct binst {
 
     enum { IMM, UNI, VAR, MEM } kind :  2;
     _Bool                       live :  1;
-    int                         pad  : 29;
+    _Bool                  symmetric :  1;
+    int                         pad  : 28;
     int                         id;
 };
 
@@ -83,6 +84,12 @@ static unsigned fnv1a(void const *v, size_t len) {
 }
 
 static int push_(struct builder *b, struct binst inst) {
+    if (inst.symmetric) {
+        int const lo = inst.x < inst.y ? inst.x : inst.y,
+                  hi = inst.x < inst.y ? inst.y : inst.x;
+        inst.x = lo;
+        inst.y = hi;
+    }
     if (inst.kind < b->inst[inst.x].kind) { inst.kind = b->inst[inst.x].kind; }
     if (inst.kind < b->inst[inst.y].kind) { inst.kind = b->inst[inst.y].kind; }
     if (inst.kind < b->inst[inst.z].kind) { inst.kind = b->inst[inst.z].kind; }
@@ -166,14 +173,14 @@ static defn(fsub) { r->f32 = v[ip->x].f32 - v[ip->y].f32; next; }
 static defn(fmul) { r->f32 = v[ip->x].f32 * v[ip->y].f32; next; }
 static defn(fdiv) { r->f32 = v[ip->x].f32 / v[ip->y].f32; next; }
 
-int iadd(struct builder *b, int x, int y) { return push(b, fn_iadd, .x=x, .y=y); }
-int isub(struct builder *b, int x, int y) { return push(b, fn_isub, .x=x, .y=y); }
-int imul(struct builder *b, int x, int y) { return push(b, fn_imul, .x=x, .y=y); }
+int iadd(struct builder *b, int x, int y) { return push(b, fn_iadd, .x=x, .y=y, .symmetric=1); }
+int isub(struct builder *b, int x, int y) { return push(b, fn_isub, .x=x, .y=y              ); }
+int imul(struct builder *b, int x, int y) { return push(b, fn_imul, .x=x, .y=y, .symmetric=1); }
 
-int fadd(struct builder *b, int x, int y) { return push(b, fn_fadd, .x=x, .y=y); }
-int fsub(struct builder *b, int x, int y) { return push(b, fn_fsub, .x=x, .y=y); }
-int fmul(struct builder *b, int x, int y) { return push(b, fn_fmul, .x=x, .y=y); }
-int fdiv(struct builder *b, int x, int y) { return push(b, fn_fdiv, .x=x, .y=y); }
+int fadd(struct builder *b, int x, int y) { return push(b, fn_fadd, .x=x, .y=y, .symmetric=1); }
+int fsub(struct builder *b, int x, int y) { return push(b, fn_fsub, .x=x, .y=y              ); }
+int fmul(struct builder *b, int x, int y) { return push(b, fn_fmul, .x=x, .y=y, .symmetric=1); }
+int fdiv(struct builder *b, int x, int y) { return push(b, fn_fdiv, .x=x, .y=y              ); }
 
 static defn(fsqrt) {
     for (int l = 0; l < lanes; l++) {
@@ -199,13 +206,13 @@ static defn(flt) { r->i32 = (I32)(v[ip->x].f32 <  v[ip->y].f32); next; }
 static defn(fle) { r->i32 = (I32)(v[ip->x].f32 <= v[ip->y].f32); next; }
 #pragma GCC diagnostic pop
 
-int ieq(struct builder *b, int x, int y) { return push(b, fn_ieq, .x=x, .y=y); }
-int ilt(struct builder *b, int x, int y) { return push(b, fn_ilt, .x=x, .y=y); }
-int ile(struct builder *b, int x, int y) { return push(b, fn_ile, .x=x, .y=y); }
+int ieq(struct builder *b, int x, int y) { return push(b, fn_ieq, .x=x, .y=y, .symmetric=1); }
+int ilt(struct builder *b, int x, int y) { return push(b, fn_ilt, .x=x, .y=y              ); }
+int ile(struct builder *b, int x, int y) { return push(b, fn_ile, .x=x, .y=y              ); }
 
-int feq(struct builder *b, int x, int y) { return push(b, fn_feq, .x=x, .y=y); }
-int flt(struct builder *b, int x, int y) { return push(b, fn_flt, .x=x, .y=y); }
-int fle(struct builder *b, int x, int y) { return push(b, fn_fle, .x=x, .y=y); }
+int feq(struct builder *b, int x, int y) { return push(b, fn_feq, .x=x, .y=y, .symmetric=1); }
+int flt(struct builder *b, int x, int y) { return push(b, fn_flt, .x=x, .y=y              ); }
+int fle(struct builder *b, int x, int y) { return push(b, fn_fle, .x=x, .y=y              ); }
 
 static defn(bshl) { r->i32 = v[ip->x].i32 << v[ip->y].i32; next; }
 static defn(bshr) { r->u32 = v[ip->x].u32 >> v[ip->y].i32; next; }
@@ -214,12 +221,12 @@ static defn(band) { r->i32 = v[ip->x].i32 &  v[ip->y].i32; next; }
 static defn(bor ) { r->i32 = v[ip->x].i32 |  v[ip->y].i32; next; }
 static defn(bxor) { r->i32 = v[ip->x].i32 ^  v[ip->y].i32; next; }
 
-int bshl(struct builder *b, int x, int y) { return push(b, fn_bshl, .x=x, .y=y); }
-int bshr(struct builder *b, int x, int y) { return push(b, fn_bshr, .x=x, .y=y); }
-int bsra(struct builder *b, int x, int y) { return push(b, fn_bsra, .x=x, .y=y); }
-int band(struct builder *b, int x, int y) { return push(b, fn_band, .x=x, .y=y); }
-int bor (struct builder *b, int x, int y) { return push(b, fn_bor , .x=x, .y=y); }
-int bxor(struct builder *b, int x, int y) { return push(b, fn_bxor, .x=x, .y=y); }
+int bshl(struct builder *b, int x, int y) { return push(b, fn_bshl, .x=x, .y=y              ); }
+int bshr(struct builder *b, int x, int y) { return push(b, fn_bshr, .x=x, .y=y              ); }
+int bsra(struct builder *b, int x, int y) { return push(b, fn_bsra, .x=x, .y=y              ); }
+int band(struct builder *b, int x, int y) { return push(b, fn_band, .x=x, .y=y, .symmetric=1); }
+int bor (struct builder *b, int x, int y) { return push(b, fn_bor , .x=x, .y=y, .symmetric=1); }
+int bxor(struct builder *b, int x, int y) { return push(b, fn_bxor, .x=x, .y=y, .symmetric=1); }
 
 static defn(bsel) {
     r->i32 = ( v[ip->x].i32 & v[ip->y].i32)
