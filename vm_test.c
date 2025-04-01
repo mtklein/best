@@ -23,7 +23,7 @@ static void test_simple(void) {
         y[i] = (float)i + N;
     }
 
-    run(p, N, (void*[]){x,y});
+    free(run(p, N, (void*[]){x,y}, NULL));
 
     for (int i = 0; i < N; i++) {
         expect(equiv(x[i], sqrtf((float)i * (float)(i + N)) ));

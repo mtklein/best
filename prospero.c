@@ -92,9 +92,10 @@ int main(int argc, char* argv[]) {
 
     float *row     = calloc((size_t)img_wh, sizeof *row);
     char  *lt_zero = calloc((size_t)img_wh, sizeof *lt_zero);
+    void  *scratch = NULL;
     for (int j = 0; j < img_wh; j++) {
         float y = +1.0f - (float)j*step;
-        run(p, img_wh, (void*[]){row, &y});
+        scratch = run(p, img_wh, (void*[]){row, &y}, scratch);
 
         for (int i = 0; i < img_wh; i++) {
             lt_zero[i] = row[i] < 0 ? 0xff : 0x00;
@@ -106,5 +107,6 @@ int main(int argc, char* argv[]) {
     free(p);
     free(row);
     free(lt_zero);
+    free(scratch);
     return 0;
 }

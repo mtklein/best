@@ -351,8 +351,8 @@ struct program* ret(struct builder *b) {
     return p;
 }
 
-void run(struct program const *p, int N, void* ptr[]) {
-    union val *v = calloc((size_t)p->insts, sizeof *v);
+void* run(struct program const *p, int N, void* ptr[], void *scratch) {
+    union val *v = scratch ? scratch : calloc((size_t)p->insts, sizeof *v);
 
     struct pinst const *start = p->inst, *loop  = start + p->loop;
     union  val         *r     = v,       *loopr =     r + p->loop;
@@ -361,5 +361,5 @@ void run(struct program const *p, int N, void* ptr[]) {
     while (i < N/K*K) { start->fn(start,r,v,i,  K,ptr); i += K; start=loop; r=loopr; }
     if    (i < N    ) { start->fn(start,r,v,i,N-i,ptr);                              }
 
-    free(v);
+    return v;
 }

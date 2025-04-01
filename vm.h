@@ -39,4 +39,4 @@ int bxor(struct builder*, int,int);
 int bsel(struct builder*, int,int,int);
 
 struct program* ret(struct builder*);
-void run(struct program const*, int N, void* ptr[]);
+void* run(struct program const*, int N, void* ptr[], void *scratch);
