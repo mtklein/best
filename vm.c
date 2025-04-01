@@ -5,7 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if 1 && defined(__ARM_NEON)
+    #include <arm_neon.h>
+#endif
+
 #define K 32
+#define unroll _Pragma("GCC unroll 32")
+
 typedef float    __attribute__((vector_size(4*K))) F32;
 typedef int32_t  __attribute__((vector_size(4*K))) I32;
 typedef uint32_t __attribute__((vector_size(4*K))) U32;
@@ -130,9 +136,12 @@ static defn(imm) {
 int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits, .kind=IMM); }
 
 static defn(idx) {
-    for (int l = 0; l < lanes; l++) {
-        r->i32[l] = l + i;
+    I32 iota = {0};
+    unroll for (int l = 0; l < K; l++) {
+        iota[l] = l;
     }
+
+    r->i32 = iota + i;
     next;
 }
 int idx(struct builder *b) { return push(b, fn_idx, .kind=VAR); }
@@ -180,9 +189,17 @@ int fmul(struct builder *b, int x, int y) { return push(b, fn_fmul, .x=x, .y=y, 
 int fdiv(struct builder *b, int x, int y) { return push(b, fn_fdiv, .x=x, .y=y              ); }
 
 static defn(fsqrt) {
+#if defined(__ARM_NEON_H)
+    union { F32 vec; float32x4_t part[K/4]; } x = {v[ip->x].f32};
+    unroll for (int p = 0; p < K/4; p++) {
+        x.part[p] = vsqrtq_f32(x.part[p]);
+    }
+    r->f32 = x.vec;
+#else
     for (int l = 0; l < lanes; l++) {
         r->f32[l] = sqrtf(v[ip->x].f32[l]);
     }
+#endif
     next;
 }
 int fsqrt(struct builder *b, int x) { return push(b, fn_fsqrt, .x=x); }
@@ -230,13 +247,29 @@ static I32 sel(I32 mask, I32 t, I32 f) {
 }
 
 static defn(fmin) {
+#if defined(__ARM_NEON_H)
+    union { F32 vec; float32x4_t part[K/4]; } x = {v[ip->x].f32}, y = {v[ip->y].f32};
+    unroll for (int p = 0; p < K/4; p++) {
+        x.part[p] = vminq_f32(x.part[p], y.part[p]);
+    }
+    r->f32 = x.vec;
+#else
     I32 const lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
     r->i32 = sel(lt, v[ip->x].i32, v[ip->y].i32);
+#endif
     next;
 }
 static defn(fmax) {
+#if defined(__ARM_NEON_H)
+    union { F32 vec; float32x4_t part[K/4]; } x = {v[ip->x].f32}, y = {v[ip->y].f32};
+    unroll for (int p = 0; p < K/4; p++) {
+        x.part[p] = vmaxq_f32(x.part[p], y.part[p]);
+    }
+    r->f32 = x.vec;
+#else
     I32 const lt = (I32)(v[ip->x].f32 < v[ip->y].f32);
     r->i32 = sel(lt, v[ip->y].i32, v[ip->x].i32);
+#endif
     next;
 }
 
