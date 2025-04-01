@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define K 16
+#define K 32
 typedef float    __attribute__((vector_size(4*K))) F32;
 typedef int32_t  __attribute__((vector_size(4*K))) I32;
 typedef uint32_t __attribute__((vector_size(4*K))) U32;
