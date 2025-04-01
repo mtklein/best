@@ -146,22 +146,32 @@ static defn(idx) {
 }
 int idx(struct builder *b) { return push(b, fn_idx, .kind=VAR); }
 
+static defn(uni) {
+    typedef int32_t __attribute__((aligned(1))) unaligned_i32;
+    char const *p = (char const*)ptr[ v[ip->x].i32[0] ] + v[ip->y].i32[0];
+    r->i32 = (I32){0} + *(unaligned_i32 const*)p;
+    next;
+}
+
 static defn(gather) {
     typedef int32_t __attribute__((aligned(1))) unaligned_i32;
     for (int l = 0; l < lanes; l++) {
-        char const* p = (char const*)ptr[ v[ip->x].i32[l] ] + v[ip->y].i32[l];
+        char const *p = (char const*)ptr[ v[ip->x].i32[l] ] + v[ip->y].i32[l];
         r->i32[l] = *(unaligned_i32 const*)p;
     }
     next;
 }
 int ld(struct builder *b, int ptr, int off) {
+    if (b->inst[ptr].kind <= UNI && b->inst[off].kind <= UNI) {
+        return push(b, fn_uni, .x=ptr, .y=off, .kind=UNI);
+    }
     return push(b, fn_gather, .x=ptr, .y=off, .kind=VAR);
 }
 
 static defn(scatter) {
     typedef int32_t __attribute__((aligned(1))) unaligned_i32;
     for (int l = 0; l < lanes; l++) {
-        char* p = (char*)ptr[ v[ip->x].i32[l] ] + v[ip->y].i32[l];
+        char *p = (char*)ptr[ v[ip->x].i32[l] ] + v[ip->y].i32[l];
         *(unaligned_i32*)p = v[ip->z].i32[l];
     }
     next;
