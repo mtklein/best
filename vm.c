@@ -91,13 +91,6 @@ static int push_(struct builder *b, struct binst inst) {
     if (inst.kind < b->inst[inst.y].kind) { inst.kind = b->inst[inst.y].kind; }
     if (inst.kind < b->inst[inst.z].kind) { inst.kind = b->inst[inst.z].kind; }
 
-    if (inst.symmetric) {
-        int const lo = inst.x < inst.y ? inst.x : inst.y,
-                  hi = inst.x < inst.y ? inst.y : inst.x;
-        inst.x = lo;
-        inst.y = hi;
-    }
-
     if (inst.kind == IMM && (inst.x || inst.y || inst.z)) {
         union val v[4] = {
             {{b->inst[inst.x].imm}},
@@ -111,6 +104,13 @@ static int push_(struct builder *b, struct binst inst) {
         };
         ip->fn(ip,v+3,v,0,1,NULL);
         return imm(b, v[3].u32[0]);
+    }
+
+    if (inst.symmetric) {
+        int const lo = inst.x < inst.y ? inst.x : inst.y,
+                  hi = inst.x < inst.y ? inst.y : inst.x;
+        inst.x = lo;
+        inst.y = hi;
     }
 
     unsigned const hash = fnv1a(&inst, sizeof inst);
