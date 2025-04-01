@@ -6,8 +6,6 @@
 #include <string.h>
 
 // TODO:
-//   [ ] dead code elimination
-//   [ ] constant propagation
 //   [ ] loop-invariant hoisting
 //   [ ] misc. strength reduction
 
@@ -17,9 +15,9 @@ typedef int32_t  __attribute__((vector_size(4*K))) I32;
 typedef uint32_t __attribute__((vector_size(4*K))) U32;
 
 union val {
-    F32 f32;
-    I32 i32;
     U32 u32;
+    I32 i32;
+    F32 f32;
 };
 
 struct pinst {
@@ -29,11 +27,18 @@ struct pinst {
     uint32_t imm;
 };
 
+#define defn(name) void fn_##name(struct pinst const *ip, union val *r, union val const *v, \
+                                  int i, int lanes, void* ptr[])
+#define next ip[1].fn(ip+1,r+1,v,i,lanes,ptr); return
+
 struct binst {
     void (*fn)(struct pinst const *ip, union val *r, union val const *v,
                int i, int lanes, void* ptr[]);
     int x,y,z;
     uint32_t imm;
+
+    enum { IMM, UNI, VAR, LIVE } kind;
+    int                          id;
 };
 
 struct builder {
@@ -42,9 +47,14 @@ struct builder {
     struct hash   cse;
 };
 
-struct builder* builder(void) {
-    struct builder *b = calloc(1, sizeof *b);
-    return b;
+static defn(ret) {
+    (void)ip;
+    (void)r;
+    (void)v;
+    (void)i;
+    (void)lanes;
+    (void)ptr;
+    return;
 }
 
 struct cse_ctx {
@@ -72,7 +82,27 @@ static unsigned fnv1a(void const *v, size_t len) {
 }
 
 static int push_(struct builder *b, struct binst inst) {
+    if (inst.kind < b->inst[inst.x].kind) { inst.kind = b->inst[inst.x].kind; }
+    if (inst.kind < b->inst[inst.y].kind) { inst.kind = b->inst[inst.y].kind; }
+    if (inst.kind < b->inst[inst.z].kind) { inst.kind = b->inst[inst.z].kind; }
+
+    if (inst.kind == IMM && (inst.x || inst.y || inst.z)) {
+        union val v[4] = {
+            {{b->inst[inst.x].imm}},
+            {{b->inst[inst.y].imm}},
+            {{b->inst[inst.z].imm}},
+            {{0}},
+        };
+        struct pinst ip[] = {
+            {.fn=inst.fn, .x=0, .y=1, .z=2, .imm=inst.imm},
+            {.fn=fn_ret},
+        };
+        ip->fn(ip,v+3,v,0,K,NULL);
+        return imm(b, v[3].u32[0]);
+    }
+
     unsigned const hash = fnv1a(&inst, sizeof inst);
+
     struct cse_ctx cse_ctx = {.b=b,.inst=&inst};
     if (hash_lookup(b->cse, hash, match_cse, &cse_ctx)) {
         return cse_ctx.id;
@@ -82,28 +112,26 @@ static int push_(struct builder *b, struct binst inst) {
     b->inst[b->insts] = inst;
 
     int const id = b->insts++;
-    // TODO: don't CSE things with side effects, e.g. fn_scatter
-    hash_insert(&b->cse, hash, id);
+    if (inst.kind < LIVE) {
+        hash_insert(&b->cse, hash, id);
+    }
     return id;
 }
 #define push(b, ...) push_(b, (struct binst){.fn=__VA_ARGS__})
 
-#define defn(name) void fn_##name(struct pinst const *ip, union val *r, union val const *v, \
-                                  int i, int lanes, void* ptr[])
-#define next ip[1].fn(ip+1,r+1,v,i,lanes,ptr); return
 
 static defn(imm) {
     r->u32 = (U32){0} + ip->imm;
     next;
 }
-int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits); }
+int imm(struct builder *b, uint32_t bits) { return push(b, fn_imm, .imm=bits, .kind=IMM); }
 
 static defn(idx) {
     _Static_assert(K == 16, "");
     r->i32 = (I32){0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15} + i;
     next;
 }
-int idx(struct builder *b) { return push(b, fn_idx); }
+int idx(struct builder *b) { return push(b, fn_idx, .kind=VAR); }
 
 static defn(gather) {
     typedef int32_t __attribute__((aligned(1))) unaligned_i32;
@@ -114,7 +142,7 @@ static defn(gather) {
     next;
 }
 int ld(struct builder *b, int ptr, int off) {
-    return push(b, fn_gather, .x=ptr, .y=off);
+    return push(b, fn_gather, .x=ptr, .y=off, .kind=VAR);
 }
 
 static defn(scatter) {
@@ -126,7 +154,7 @@ static defn(scatter) {
     next;
 }
 void st(struct builder *b, int ptr, int off, int val) {
-    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val);
+    (void)push(b, fn_scatter, .x=ptr, .y=off, .z=val, .kind=LIVE);
 }
 
 static defn(iadd) { r->i32 = v[ip->x].i32 + v[ip->y].i32; next; }
@@ -200,32 +228,46 @@ static defn(bsel) {
 }
 int bsel(struct builder *b, int x, int y, int z) { return push(b, fn_bsel, .x=x, .y=y, .z=z); }
 
+struct builder* builder(void) {
+    struct builder *b = calloc(1, sizeof *b);
+    b->insts = 1;
+    b->inst  = calloc(1, sizeof *b->inst);
+    return b;
+}
+
 struct program {
     int          insts,padding;
     struct pinst inst[];
 };
 
-static defn(ret) {
-    (void)ip;
-    (void)r;
-    (void)v;
-    (void)i;
-    (void)lanes;
-    (void)ptr;
-    return;
-}
 struct program* ret(struct builder *b) {
-    push(b, fn_ret);
+    push(b, fn_ret, .kind=LIVE);
 
-    struct program *p = calloc(1, sizeof *p + (size_t)b->insts * sizeof *p->inst);
-    for (struct binst const *inst = b->inst; inst < b->inst+b->insts; inst++) {
-        struct pinst *pinst = p->inst + p->insts++;
+    int live = 0;
+    for (struct binst *inst = b->inst+b->insts; inst --> b->inst;) {
+        if (inst->kind == LIVE) {
+            b->inst[inst->x].kind = LIVE;
+            b->inst[inst->y].kind = LIVE;
+            b->inst[inst->z].kind = LIVE;
+        } else {
+            inst->fn = NULL;
+        }
+        live += (inst->fn != NULL);
+    }
 
-        pinst->fn  = inst->fn;
-        pinst->x   = inst->x;
-        pinst->y   = inst->y;
-        pinst->z   = inst->z;
-        pinst->imm = inst->imm;
+    struct program *p = calloc(1, sizeof *p + (size_t)live * sizeof *p->inst);
+    for (struct binst *inst = b->inst; inst < b->inst+b->insts; inst++) {
+        if (inst->fn) {
+            struct pinst *pinst = p->inst + p->insts;
+
+            pinst->fn  = inst->fn;
+            pinst->x   = b->inst[inst->x].id;
+            pinst->y   = b->inst[inst->y].id;
+            pinst->z   = b->inst[inst->z].id;
+            pinst->imm = inst->imm;
+
+            inst->id = p->insts++;
+        }
     }
 
     free(b->inst);

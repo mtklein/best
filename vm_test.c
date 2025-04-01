@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-int main(void) {
+static void test_simple(void) {
     struct program *p = NULL;
     {
         struct builder *b = builder();
@@ -30,5 +30,29 @@ int main(void) {
     }
 
     free(p);
+}
+
+static void test_cse(void) {
+    struct builder *b = builder();
+    int x = imm(b, 42),
+        y = imm(b, 42);
+    expect(x == y);
+    free(ret(b));
+}
+
+static void test_constant_prop(void) {
+    struct builder *b = builder();
+    int x =  imm(b, 42),
+        y =  imm(b, 43),
+        z =  imm(b, 85),
+        w = iadd(b, x,y);
+    expect(z == w);
+    free(ret(b));
+}
+
+int main(void) {
+    test_simple();
+    test_cse();
+    test_constant_prop();
     return 0;
 }
