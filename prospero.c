@@ -86,27 +86,24 @@ int main(int argc, char* argv[]) {
     fclose(in);
 
     st(b, imm(b,0), imul(b, imm(b,4), idx(b)), val[vals-1]);
+    free(val);
     struct program *p = ret(b);
+    void *scratch = NULL;
 
-    dprintf(1, "P5\n%d %d\n255\n", img_wh, img_wh);
-
-    float *row     = calloc((size_t)img_wh, sizeof *row);
-    char  *lt_zero = calloc((size_t)img_wh, sizeof *lt_zero);
-    void  *scratch = NULL;
+    float *img = calloc((size_t)(img_wh*img_wh), sizeof *img);
     for (int j = 0; j < img_wh; j++) {
         float y = +1.0f - (float)j*step;
-        scratch = run(p, img_wh, (void*[]){row, &y}, scratch);
-
-        for (int i = 0; i < img_wh; i++) {
-            lt_zero[i] = row[i] < 0 ? 0xff : 0x00;
-        }
-        write(1, lt_zero, (size_t)img_wh);
+        scratch = run(p, img_wh, (void*[]){img + j*img_wh, &y}, scratch);
     }
-
-    free(val);
     free(p);
-    free(row);
-    free(lt_zero);
     free(scratch);
+
+    dprintf(1, "P5\n%d %d\n255\n", img_wh, img_wh);
+    for (int i = 0; i < img_wh*img_wh; i++) {
+        ((char*)img)[i] = img[i] < 0 ? 0xff : 0x00;
+    }
+    write(1, img, (size_t)(img_wh*img_wh));
+    free(img);
+
     return 0;
 }
