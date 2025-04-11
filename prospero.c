@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 
     dprintf(1, "P5\n%d %d\n255\n", img_wh, img_wh);
     for (int i = 0; i < img_wh*img_wh; i++) {
-        ((char*)img)[i] = img[i] < 0 ? 0xff : 0x00;
+        ((unsigned char*)img)[i] = img[i] < 0 ? 0xff : 0x00;
     }
     write(1, img, (size_t)(img_wh*img_wh));
     free(img);
